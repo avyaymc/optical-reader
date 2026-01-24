@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="description" content="Extract and play audio from 35mm film optical soundtracks">
+
+    <title>Optical Reader</title>
+
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./assets/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./assets/icon-192.png">
+    <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <h1 class="app-title" id="headerTitle">Optical Reader</h1>
+        <button class="icon-btn" id="aboutBtn" aria-label="About">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4M12 8h.01"/>
+            </svg>
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+        <!-- Section 1: Capture Screen -->
+        <section id="captureScreen" class="screen active">
+            <div class="video-container">
+                <video id="cameraFeed" autoplay playsinline muted></video>
+                <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+                <div class="guide-overlay">
+                    <div class="guide-box"></div>
+                </div>
+            </div>
+
+            <div class="controls-row">
+                <button class="icon-btn torch-btn" id="torchBtn" aria-label="Toggle flashlight" style="display: none;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18h6M10 22h4M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0018 8 6 6 0 006 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 019 14"/>
+                    </svg>
+                </button>
+
+                <button class="capture-btn" id="captureBtn" aria-label="Capture photo">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                        <path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/>
+                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                    </svg>
+                </button>
+
+                <button class="icon-btn upload-btn" id="uploadBtn" aria-label="Upload image">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 20h16a2 2 0 002-2V8a2 2 0 00-2-2h-7.93a2 2 0 01-1.66-.9l-.82-1.2A2 2 0 007.93 3H4a2 2 0 00-2 2v13c0 1.1.9 2 2 2z"/>
+                    </svg>
+                </button>
+                <input type="file" id="fileInput" accept="image/*" hidden>
+            </div>
+
+            <p class="helper-text">Align the optical track with the guide and capture</p>
+        </section>
+
+        <!-- Section 2: Process Screen -->
+        <section id="processScreen" class="screen">
+            <h2 class="section-title">Select Optical Track Region</h2>
+
+            <div class="canvas-container">
+                <canvas id="imageCanvas"></canvas>
+                <div id="roiSelector" class="roi-selector">
+                    <div class="roi-handle roi-handle-tl" data-handle="tl"></div>
+                    <div class="roi-handle roi-handle-tr" data-handle="tr"></div>
+                    <div class="roi-handle roi-handle-bl" data-handle="bl"></div>
+                    <div class="roi-handle roi-handle-br" data-handle="br"></div>
+                </div>
+            </div>
+
+            <p class="helper-text">Drag the box to cover the optical soundtrack strip (the narrow band between perforations and picture)</p>
+
+            <div class="buttons-row">
+                <button class="btn btn-secondary" id="retakeBtn">← Retake</button>
+                <button class="btn btn-primary" id="extractBtn">Extract Waveform →</button>
+            </div>
+
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="spinner"></div>
+                <p>Processing...</p>
+            </div>
+        </section>
+
+        <!-- Section 3: Playback Screen -->
+        <section id="playbackScreen" class="screen">
+            <h2 class="section-title">Extracted Audio</h2>
+
+            <div class="waveform-container" id="waveformContainer">
+                <canvas id="waveformCanvas"></canvas>
+            </div>
+
+            <div class="playback-controls">
+                <button class="btn btn-primary play-btn" id="playBtn" aria-label="Play">
+                    <svg class="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <svg class="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="white" style="display: none;">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                </button>
+
+                <div class="speed-control">
+                    <label for="speedSlider">Speed:</label>
+                    <input type="range" id="speedSlider" min="0.25" max="4" step="0.25" value="1">
+                    <span id="speedValue">1.0x</span>
+                </div>
+
+                <div class="loop-control">
+                    <input type="checkbox" id="loopToggle">
+                    <label for="loopToggle">Loop</label>
+                </div>
+            </div>
+
+            <div class="buttons-row">
+                <button class="btn btn-secondary" id="downloadBtn">Download WAV</button>
+                <button class="btn btn-secondary" id="scanAnotherBtn">Scan Another</button>
+            </div>
+
+            <p class="info-text" id="audioInfo">Duration: ~42ms | Samples: 1837</p>
+        </section>
+    </main>
+
+    <!-- About Modal -->
+    <div class="modal-overlay" id="aboutModal">
+        <div class="modal-card">
+            <button class="modal-close" id="modalCloseBtn" aria-label="Close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+
+            <h2 class="modal-title">How Optical Sound Works</h2>
+
+            <div class="modal-content">
+                <p>35mm film has an optical soundtrack encoded as a narrow strip along the left edge, between the sprocket holes and the picture area.</p>
+
+                <p>The varying width of the transparent area in this strip encodes sound waves. In a theater projector:</p>
+
+                <ul>
+                    <li>A light source shines through the moving film</li>
+                    <li>The varying transparency modulates the light intensity</li>
+                    <li>A photocell converts this to an electrical signal</li>
+                    <li>The signal is amplified and sent to speakers</li>
+                </ul>
+
+                <p>This app photographs the track and digitally measures those width variations to reconstruct the audio.</p>
+
+                <p><strong>Note:</strong> One frame contains only 1/24 second of audio, so the result is a brief sound burst rather than recognizable audio. But it's real sound data from real film!</p>
+            </div>
+
+            <button class="btn btn-primary modal-dismiss" id="modalDismissBtn">Got it</button>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Error Display -->
+    <div class="error-banner" id="errorBanner">
+        <p id="errorMessage"></p>
+        <button class="error-dismiss" id="errorDismiss">×</button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="./js/utils.js"></script>
+    <script src="./js/camera.js"></script>
+    <script src="./js/roi-selector.js"></script>
+    <script src="./js/image-processor.js"></script>
+    <script src="./js/audio-engine.js"></script>
+    <script src="./js/waveform-renderer.js"></script>
+    <script src="./js/easter-eggs.js"></script>
+    <script src="./js/app.js"></script>
+</body>
+</html>
